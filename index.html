@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#3d5a40" />
+  <title>Sungura Master</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:wght@600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- ===== SPLASH INTRO ===== -->
+  <div class="splash" id="splash" aria-hidden="true">
+    <div class="splash-content">
+
+      <div class="splash-art">
+        <div class="splash-glow"></div>
+        <img class="splash-rabbit" src="images/rabbit.png" alt="" />
+        <img class="splash-carrots" src="images/carrots.png" alt="" onerror="this.style.display='none'" />
+      </div>
+
+      <div class="splash-text">
+        <h1 class="tagline">
+          <span class="hops">Hops</span> <span class="on">on</span><br />
+          <span class="every">every task</span>
+        </h1>
+        <p class="splash-brand" id="splash-title">Sungura Master</p>
+      </div>
+    </div>
+
+    <p class="splash-skip">Tap to skip</p>
+  </div>
+
+  <script>
+    (function () {
+      var splash = document.getElementById("splash");
+
+      // true  = plays once per visit (better for daily use)
+      // false = plays every time (better while you're building)
+      var PLAY_ONCE_PER_SESSION = false;
+
+      try {
+        if (PLAY_ONCE_PER_SESSION && sessionStorage.getItem("splashSeen")) {
+          splash.classList.add("hide");
+        }
+        sessionStorage.setItem("splashSeen", "1");
+
+        var name = localStorage.getItem("farmName");
+        if (name) document.getElementById("splash-title").textContent = name;
+      } catch (e) {}
+
+      // Tap anywhere to skip
+      splash.addEventListener("click", function () {
+        splash.classList.add("hide");
+      });
+    })();
+  </script>
+
+  <!-- ===== BACKGROUND PHOTOS (one per page, they fade between pages) ===== -->
+  <div class="bg" aria-hidden="true">
+    <div class="bg-img" data-bg="home"></div>
+    <div class="bg-img" data-bg="rabbits"></div>
+    <div class="bg-img" data-bg="breeding"></div>
+    <div class="bg-img" data-bg="feed"></div>
+    <div class="bg-img" data-bg="health"></div>
+    <div class="bg-img" data-bg="finance"></div>
+    <div class="bg-img" data-bg="more"></div>
+  </div>
+
+  <div class="app">
+
+    <header class="header" id="app-title">Sungura Master</header>
+
+    <!-- Each section is one "page" of the app -->
+    <main>
+
+      <!-- ===== HOME: a greeting, one alert, four cards ===== -->
+      <section id="home" class="page active">
+
+        <div class="hero hero-home">
+          <h2 id="hero-title">Welcome back</h2>
+          <p id="hero-sub">Here's how your farm looks today.</p>
+        </div>
+
+        <button type="button" class="alert-banner calm" id="alert-banner" data-goto="reminders">
+          <span class="alert-count" id="alert-count">0</span>
+          <span class="alert-text">
+            <strong id="alert-title">All caught up</strong>
+            <small id="alert-sub">Nothing needs you today</small>
+          </span>
+          <span class="alert-arrow">&rsaquo;</span>
+        </button>
+
+        <div class="grid">
+          <div class="card"><h3>Total Rabbits</h3><p id="total-rabbits">0</p></div>
+          <div class="card"><h3>Due Soon</h3><p id="due-soon">0</p></div>
+          <div class="card"><h3>Profit (KES)</h3><p id="home-profit">0</p></div>
+          <div class="card feed-card" data-goto="feed">
+            <h3>Feed Stock</h3>
+            <p id="feed-days">&ndash;</p>
+            <small id="feed-sub">Tap to add your feed</small>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ===== REMINDERS: opened from the alert on Home ===== -->
+      <section id="reminders" class="page">
+        <button type="button" class="back-link" data-goto="home">&lsaquo; Back to Home</button>
+
+        <div class="hero hero-reminders">
+          <h2>Reminders</h2>
+          <p>Everything that needs you</p>
+        </div>
+
+        <ul id="today-list" class="today-list"></ul>
+
+        <details class="add-task">
+          <summary>+ Add a task</summary>
+          <form id="task-form" class="form">
+            <input type="text" id="task-title" placeholder="e.g. Clean the hutches" required />
+
+            <label>Due date</label>
+            <input type="date" id="task-date" required />
+
+            <label>Repeat</label>
+            <select id="task-repeat">
+              <option value="none">Does not repeat</option>
+              <option value="daily">Every day</option>
+              <option value="weekly">Every week</option>
+              <option value="monthly">Every month</option>
+            </select>
+
+            <button type="submit">Save task</button>
+          </form>
+        </details>
+      </section>
+
+      <!-- ===== RABBITS ===== -->
+      <section id="rabbits" class="page">
+        <div class="hero hero-rabbits">
+          <h2>Rabbits</h2>
+          <p>Every animal on your farm</p>
+        </div>
+
+        <form id="rabbit-form" class="form">
+          <input type="text" id="rabbit-name" placeholder="Name or tag (e.g. R-001)" required />
+
+          <select id="rabbit-breed">
+            <option>New Zealand White</option>
+            <option>California White</option>
+            <option>Chinchilla</option>
+            <option>Flemish Giant</option>
+            <option>Other</option>
+          </select>
+
+          <select id="rabbit-sex">
+            <option>Doe (female)</option>
+            <option>Buck (male)</option>
+          </select>
+
+          <label>Date of birth</label>
+          <input type="date" id="rabbit-dob" />
+
+          <input type="text" id="rabbit-cage" placeholder="Cage or hutch (e.g. A3)" />
+          <input type="number" id="rabbit-weight" placeholder="Weight in kg (optional)" step="0.01" min="0" />
+
+          <label>Father (sire)</label>
+          <select id="rabbit-sire"></select>
+
+          <label>Mother (dam)</label>
+          <select id="rabbit-dam"></select>
+
+          <input type="text" id="rabbit-notes" placeholder="Notes (optional)" />
+
+          <button type="submit">Add rabbit</button>
+        </form>
+
+        <ul id="rabbit-list" class="list"></ul>
+      </section>
+
+      <!-- ===== BREEDING ===== -->
+      <section id="breeding" class="page">
+        <div class="hero hero-breeding">
+          <h2>Breeding</h2>
+          <p>Mating, due dates and litters</p>
+        </div>
+
+        <form id="breeding-form" class="form">
+          <label for="breed-doe">Doe (mother)</label>
+          <select id="breed-doe" required></select>
+
+          <label for="breed-buck">Buck (father)</label>
+          <select id="breed-buck"></select>
+
+          <label for="breed-date">Mating date</label>
+          <input type="date" id="breed-date" required />
+
+          <button type="submit">Save mating</button>
+        </form>
+
+        <ul id="breeding-list" class="list"></ul>
+      </section>
+
+      <!-- ===== FEED STOCK: opened from the Feed card on Home ===== -->
+      <section id="feed" class="page">
+        <button type="button" class="back-link" data-goto="home">&lsaquo; Back to Home</button>
+
+        <div class="hero hero-feed">
+          <h2>Feed stock</h2>
+          <p>Know when you'll run out</p>
+        </div>
+
+        <form id="feed-form" class="form">
+          <input type="text" id="feed-name" placeholder="Feed name (e.g. Pellets, Hay)" required />
+
+          <label>Unit</label>
+          <select id="feed-unit">
+            <option>kg</option>
+            <option>bags</option>
+            <option>bales</option>
+          </select>
+
+          <input type="number" id="feed-stock" placeholder="How much do you have now?" min="0" step="any" required />
+          <input type="number" id="feed-perday" placeholder="How much do you use per day? (optional)" min="0" step="any" />
+
+          <button type="submit">Add feed</button>
+        </form>
+
+        <ul id="feed-list" class="list"></ul>
+      </section>
+
+      <!-- ===== HEALTH ===== -->
+      <section id="health" class="page">
+        <div class="hero hero-health">
+          <h2>Health</h2>
+          <p>Vaccinations, treatments and check-ups</p>
+        </div>
+
+        <form id="health-form" class="form">
+          <label>Rabbit</label>
+          <select id="health-rabbit"></select>
+
+          <label>Type</label>
+          <select id="health-type">
+            <option>Vaccination</option>
+            <option>Treatment</option>
+            <option>Deworming</option>
+            <option>Check-up</option>
+            <option>Other</option>
+          </select>
+
+          <input type="text" id="health-title" placeholder="What was done? (e.g. Myxomatosis vaccine)" required />
+
+          <label>Date given</label>
+          <input type="date" id="health-date" required />
+
+          <label>Next due (optional)</label>
+          <input type="date" id="health-next" />
+
+          <input type="number" id="health-withdrawal" placeholder="Withdrawal period in days (optional)" min="0" step="1" />
+          <input type="number" id="health-cost" placeholder="Cost in KES (optional)" min="0" step="1" />
+          <input type="text" id="health-notes" placeholder="Notes (optional)" />
+
+          <button type="submit">Save record</button>
+        </form>
+
+        <div class="filter-bar">
+          <label for="health-filter">Show records for</label>
+          <select id="health-filter"></select>
+        </div>
+
+        <ul id="health-list" class="list"></ul>
+      </section>
+
+      <!-- ===== FINANCE ===== -->
+      <section id="finance" class="page">
+        <div class="hero hero-finance">
+          <h2>Finance</h2>
+          <p>Income, expenses and profit</p>
+        </div>
+
+        <div class="grid">
+          <div class="card"><h3>Income (KES)</h3><p id="fin-income">0</p></div>
+          <div class="card"><h3>Expenses (KES)</h3><p id="fin-expenses">0</p></div>
+        </div>
+        <div class="card profit-card"><h3>Profit (KES)</h3><p id="fin-profit">0</p></div>
+
+        <form id="finance-form" class="form">
+          <label>Type</label>
+          <select id="fin-type">
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+          </select>
+
+          <label>Category</label>
+          <select id="fin-category"></select>
+
+          <div id="sale-fields" class="sale-fields" hidden>
+            <label>Which rabbit was sold?</label>
+            <select id="fin-rabbit"></select>
+          </div>
+
+          <input type="text" id="fin-desc" placeholder="Description (optional)" />
+          <input type="number" id="fin-amount" placeholder="Amount (KES)" min="1" required />
+          <input type="date" id="fin-date" required />
+
+          <button type="submit">Save transaction</button>
+        </form>
+
+        <ul id="finance-list" class="list"></ul>
+      </section>
+
+      <!-- ===== MORE ===== -->
+      <section id="more" class="page">
+        <div class="hero hero-more">
+          <h2>More</h2>
+          <p>Settings, backup and install</p>
+        </div>
+
+        <div class="card more-card">
+          <h3>Farm name</h3>
+          <form id="settings-form" class="form">
+            <input type="text" id="farm-name" placeholder="e.g. Kamau Rabbit Farm" />
+            <button type="submit">Save name</button>
+          </form>
+        </div>
+
+        <div class="card more-card" id="sync-card">
+          <h3>Cloud sync</h3>
+          <p class="note" id="sync-status">Not signed in.</p>
+
+          <div id="sync-out">
+            <form id="sync-form" class="form">
+              <input type="email" id="sync-email" placeholder="Email" autocomplete="email" />
+              <input type="password" id="sync-password" placeholder="Password (6+ characters)" autocomplete="current-password" />
+              <button type="submit" id="sync-signin" class="action-btn">Sign in</button>
+              <button type="button" id="sync-signup" class="action-btn secondary">Create account</button>
+            </form>
+          </div>
+
+          <div id="sync-in" hidden>
+            <p class="note" id="sync-account"></p>
+            <button type="button" id="sync-now" class="action-btn">Sync now</button>
+            <button type="button" id="sync-signout" class="action-btn secondary">Sign out</button>
+          </div>
+        </div>
+
+        <div class="card more-card">
+          <h3>Backup your data</h3>
+          <p class="note">Download a copy of all your farm data. Use it to restore or move data to another device.</p>
+          <button id="export-btn" class="action-btn">Download backup</button>
+          <label for="import-file" class="action-btn">Restore from backup</label>
+          <input type="file" id="import-file" accept=".json" hidden />
+        </div>
+
+        <div class="card more-card" id="install-card" hidden>
+          <h3>Install app</h3>
+          <button id="install-btn" class="action-btn">Install Sungura Master</button>
+        </div>
+
+        <div class="card more-card">
+          <h3>Danger zone</h3>
+          <button id="reset-btn" class="action-btn danger">Delete all data</button>
+        </div>
+
+        <p class="version">Sungura Master v1.0</p>
+      </section>
+
+    </main>
+
+    <!-- ===== NAVIGATION (sidebar on laptop, bottom bar on phone) ===== -->
+    <nav class="bottom-nav">
+      <div class="brand">
+        <img src="images/logo.png" alt="" />
+        <span id="brand-name">Sungura Master</span>
+      </div>
+
+      <button data-page="home" class="active">
+        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Home
+      </button>
+      <button data-page="rabbits">
+        <svg viewBox="0 0 24 24"><ellipse cx="9" cy="6" rx="2" ry="5"/><ellipse cx="15" cy="6" rx="2" ry="5"/><circle cx="12" cy="15" r="6"/></svg>
+        Rabbits
+      </button>
+      <button data-page="breeding">
+        <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        Breeding
+      </button>
+      <button data-page="health">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg>
+        Health
+      </button>
+      <button data-page="finance">
+        <svg viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg>
+        Finance
+      </button>
+      <button data-page="more">
+        <svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        More
+      </button>
+    </nav>
+
+  </div>
+
+  <script src="app.js"></script>
+  <script src="sync.js"></script>
+</body>
+</html>
