@@ -120,7 +120,7 @@
 
         <ul id="today-list" class="today-list"></ul>
 
-        <details class="add-task">
+        <details class="add-task" id="task-box">
           <summary>+ Add a task</summary>
           <form id="task-form" class="form">
             <input type="text" id="task-title" placeholder="e.g. Clean the hutches" required />
@@ -141,47 +141,98 @@
         </details>
       </section>
 
-      <!-- ===== RABBITS ===== -->
+      <!-- ===== RABBITS: hutch view and list view ===== -->
       <section id="rabbits" class="page">
         <div class="hero hero-rabbits">
           <h2>Rabbits</h2>
           <p>Every animal on your farm</p>
         </div>
 
-        <form id="rabbit-form" class="form">
-          <input type="text" id="rabbit-name" placeholder="Name or tag (e.g. R-001)" required />
+        <div class="view-bar">
+          <div class="segmented">
+            <button type="button" id="view-hutch" class="seg active">Hutch</button>
+            <button type="button" id="view-list" class="seg">List</button>
+          </div>
+          <button type="button" class="link-btn" data-goto="report">Herd report</button>
+        </div>
 
-          <select id="rabbit-breed">
-            <option>New Zealand White</option>
-            <option>California White</option>
-            <option>Chinchilla</option>
-            <option>Flemish Giant</option>
-            <option>Other</option>
-          </select>
+        <details class="add-task" id="rabbit-box">
+          <summary>+ Add a rabbit</summary>
+          <form id="rabbit-form" class="form">
+            <input type="text" id="rabbit-name" placeholder="Name or tag (e.g. R-001)" required />
 
-          <select id="rabbit-sex">
-            <option>Doe (female)</option>
-            <option>Buck (male)</option>
-          </select>
+            <select id="rabbit-breed">
+              <option>New Zealand White</option>
+              <option>California White</option>
+              <option>Chinchilla</option>
+              <option>Flemish Giant</option>
+              <option>Other</option>
+            </select>
 
-          <label>Date of birth</label>
-          <input type="date" id="rabbit-dob" />
+            <select id="rabbit-sex">
+              <option>Doe (female)</option>
+              <option>Buck (male)</option>
+            </select>
 
-          <input type="text" id="rabbit-cage" placeholder="Cage or hutch (e.g. A3)" />
-          <input type="number" id="rabbit-weight" placeholder="Weight in kg (optional)" step="0.01" min="0" />
+            <label>Date of birth</label>
+            <input type="date" id="rabbit-dob" />
 
-          <label>Father (sire)</label>
-          <select id="rabbit-sire"></select>
+            <label>Cage</label>
+            <select id="rabbit-cage"></select>
 
-          <label>Mother (dam)</label>
-          <select id="rabbit-dam"></select>
+            <input type="number" id="rabbit-weight" placeholder="Weight in kg (optional)" step="0.01" min="0" />
 
-          <input type="text" id="rabbit-notes" placeholder="Notes (optional)" />
+            <label>Father (sire)</label>
+            <select id="rabbit-sire"></select>
 
-          <button type="submit">Add rabbit</button>
-        </form>
+            <label>Mother (dam)</label>
+            <select id="rabbit-dam"></select>
 
-        <ul id="rabbit-list" class="list"></ul>
+            <input type="text" id="rabbit-notes" placeholder="Notes (optional)" />
+
+            <button type="submit">Add rabbit</button>
+          </form>
+        </details>
+
+        <div id="hutch-panel">
+          <div class="hutch-grid" id="hutch-grid"></div>
+
+          <div class="hutch-legend">
+            <span><i class="legend-dot doe"></i>Doe</span>
+            <span><i class="legend-dot buck"></i>Buck</span>
+            <span><i class="legend-dot kit"></i>Kits</span>
+            <span>Due = kindling within a week</span>
+            <span>Hold = medicine withdrawal</span>
+          </div>
+
+          <div class="unplaced" id="unplaced" hidden>
+            <h3>Not in a cage</h3>
+            <p class="unplaced-note">These rabbits aren't in a cage on the grid yet. Choose a cage for each one.</p>
+            <ul id="unplaced-list" class="today-list"></ul>
+          </div>
+        </div>
+
+        <div id="list-panel" hidden>
+          <ul id="rabbit-list" class="list"></ul>
+        </div>
+      </section>
+
+      <!-- ===== HERD REPORT: opened from the Rabbits page ===== -->
+      <section id="report" class="page">
+        <button type="button" class="back-link" data-goto="rabbits">&lsaquo; Back to Rabbits</button>
+
+        <div class="hero hero-report">
+          <h2>Herd report</h2>
+          <p>Ages, sexes and the total herd, ready to print</p>
+        </div>
+
+        <div class="report-actions">
+          <button type="button" id="report-generate" class="action-btn">Generate report</button>
+          <button type="button" id="report-print" class="action-btn secondary" hidden>Print or save as PDF</button>
+          <button type="button" id="report-csv" class="action-btn secondary" hidden>Download list (CSV)</button>
+        </div>
+
+        <div id="report-body" class="report-sheet"></div>
       </section>
 
       <!-- ===== BREEDING ===== -->
@@ -331,6 +382,18 @@
           </form>
         </div>
 
+        <div class="card more-card">
+          <h3>Hutch layout</h3>
+          <p class="note">How many cages you have. Rows are lettered from the top (A, B, C) and columns are numbered from the left (1, 2, 3), so the top-left cage is A1.</p>
+          <form id="hutch-form" class="form">
+            <label for="hutch-cols">Columns (across)</label>
+            <input type="number" id="hutch-cols" min="1" max="10" />
+            <label for="hutch-rows">Rows (down)</label>
+            <input type="number" id="hutch-rows" min="1" max="8" />
+            <button type="submit">Save layout</button>
+          </form>
+        </div>
+
         <div class="card more-card" id="sync-card">
           <h3>Cloud sync</h3>
           <p class="note" id="sync-status">Not signed in.</p>
@@ -408,6 +471,15 @@
     </nav>
 
   </div>
+
+  <!-- ===== POP-UP: shows one cage (or one rabbit) in detail ===== -->
+  <dialog id="cage-dialog" class="sheet">
+    <div class="sheet-head">
+      <h3 id="sheet-title">Cage</h3>
+      <button type="button" id="sheet-close" class="sheet-close">Close</button>
+    </div>
+    <div id="sheet-body"></div>
+  </dialog>
 
   <script src="app.js"></script>
   <script src="sync.js"></script>
