@@ -4,7 +4,7 @@
 // phones download the new files.
 // =====================================================================
 
-const CACHE_NAME = "sungura-v15";
+const CACHE_NAME = "sungura-v16";
 
 // Files saved for offline use
 const FILES = [

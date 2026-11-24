@@ -1130,3 +1130,392 @@ body[data-page="feed"] .bg-img[data-bg="feed"] { opacity: 1; }
 
 /* The Reminders page uses the Home photo */
 body[data-page="reminders"] .bg-img[data-bg="home"] { opacity: 1; }
+
+/* HUTCH*/
+.hutch-overview {
+  padding: 16px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.hutch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+/* 5 columns across on desktop, with row gaps */
+.hutch-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  row-gap: 20px; /* White space between rows, like in your sketch */
+  column-gap: 0; /* Flush columns separated by vertical lines */
+  border-top: 2px solid #111;
+  border-bottom: 2px solid #111;
+}
+
+.cage-cell {
+  background-color: #d9d9d9;
+  min-height: 110px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  border-right: 3px solid #111; /* Vertical column divider */
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.cage-cell:first-child {
+  border-left: 3px solid #111;
+}
+
+.cage-cell:hover {
+  background-color: #c7c7c7;
+}
+
+.cage-title {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.rabbit-info {
+  font-size: 0.875rem;
+  color: #222;
+}
+
+/* Responsive adjustment for smaller screens */
+@media (max-width: 900px) {
+  .hutch-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .hutch-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ===== 23. HUTCH VIEW, CAGE POP-UP, HERD REPORT =====
+   Paste this at the very bottom of style.css */
+
+/* ----- Hutch / List switch ----- */
+.view-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 4px 0 14px;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+}
+
+.seg {
+  border: none;
+  background: none;
+  padding: 8px 20px;
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+}
+.seg.active { background: rgba(255, 255, 255, 0.16); color: #fff6e6; }
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 8px 4px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #c3e3b2;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+#rabbit-box { margin: 0 0 14px; }
+
+/* ----- The hutch ----- */
+.hutch-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--line);
+}
+
+.cage {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 78px;
+  padding: 8px 6px;
+  overflow: hidden;
+  text-align: left;
+  font-family: var(--font-body);
+  color: var(--bark);
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.cage:hover { background: rgba(255, 255, 255, 0.14); }
+.cage:active { transform: scale(0.97); }
+
+.cage.empty { opacity: 0.55; border-style: dashed; }
+
+.cage-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.cage-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cage-more { font-size: 0.68rem; color: var(--muted); }
+
+.cage-flags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; }
+.cage-flag {
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  background: rgba(217, 164, 65, 0.25);
+  color: #f4cf7d;
+}
+.cage-flag.hold { background: rgba(192, 98, 59, 0.3); color: #f6ae8f; }
+
+/* The coloured top edge shows who lives there */
+.cage.has-doe  { border-top: 4px solid #d9a441; }
+.cage.has-buck { border-top: 4px solid #6fb3b0; }
+.cage.has-kit  { border-top: 4px solid #8fbf7f; }
+
+@media (min-width: 900px) {
+  .hutch-grid { gap: 12px; padding: 18px; }
+  .cage { min-height: 112px; padding: 12px; }
+  .cage-label { font-size: 0.75rem; }
+  .cage-name { font-size: 0.95rem; }
+  .cage-more { font-size: 0.8rem; }
+  .cage-flag { font-size: 0.7rem; }
+}
+
+.hutch-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 10px 2px 16px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+.legend-dot.doe  { background: #d9a441; }
+.legend-dot.buck { background: #6fb3b0; }
+.legend-dot.kit  { background: #8fbf7f; }
+
+/* ----- Rabbits that are not in a cage on the grid ----- */
+.unplaced { margin-top: 18px; }
+.unplaced h3 { font-family: var(--font-display); font-size: 1.2rem; color: #fff6e6; }
+.unplaced-note { margin: 2px 0 10px; font-size: 0.85rem; color: var(--muted); }
+
+.unplaced-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.unplaced-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.unplaced-controls select,
+.unplaced-controls button {
+  padding: 9px 12px;
+  font-family: var(--font-body);
+  color: var(--bark);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.unplaced-controls button { cursor: pointer; }
+
+/* ----- The cage pop-up ----- */
+.sheet {
+  width: min(560px, 94vw);
+  max-height: 88vh;
+  padding: 0;
+  overflow: hidden;
+  color: var(--bark);
+  background: rgba(18, 27, 21, 0.97);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+.sheet[open] { display: flex; flex-direction: column; }
+.sheet::backdrop {
+  background: rgba(0, 0, 0, 0.65);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.sheet-head h3 { font-family: var(--font-display); font-size: 1.3rem; color: #fff6e6; }
+
+.sheet-close {
+  padding: 8px 14px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  color: var(--bark);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+#sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 18px;
+  overflow-y: auto;
+}
+
+.detail-card {
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.detail-head strong { font-size: 1.1rem; }
+.detail-head .badge { margin-top: 0; }
+
+.detail-row {
+  display: flex;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.detail-label { flex: 0 0 108px; font-size: 0.8rem; color: var(--muted); }
+.detail-value { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+.detail-card .item-actions { margin-top: 12px; flex-wrap: wrap; }
+.detail-card .item-actions button,
+.detail-card .item-actions select {
+  flex: 1 1 30%;
+  padding: 9px;
+  font-family: var(--font-body);
+  color: var(--bark);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+/* ----- Herd report ----- */
+.hero-report .back-link { margin-bottom: 0; }
+
+.report-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 16px; }
+.report-actions .action-btn { width: auto; margin-top: 0; padding: 12px 20px; }
+
+.report-sheet {
+  padding: 18px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+}
+.report-title { font-family: var(--font-display); font-size: 1.5rem; color: #fff6e6; }
+.report-date { margin: 2px 0 14px; font-size: 0.85rem; color: var(--muted); }
+.report-sheet h4 {
+  margin: 20px 0 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.report-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 700px) { .report-cards { grid-template-columns: repeat(4, 1fr); } }
+.report-card {
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.report-card small { display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.report-card strong { display: block; margin-top: 4px; font-family: var(--font-display); font-size: 1.8rem; }
+
+.report-table-wrap { overflow-x: auto; }
+.report-sheet table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.report-sheet th,
+.report-sheet td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); }
+.report-sheet th { font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.report-sheet th:not(:first-child),
+.report-sheet td:not(:first-child) { text-align: right; }
+.report-sheet .total-row td { font-weight: 700; border-top: 2px solid var(--line); }
+
+.report-facts { margin: 0; padding-left: 18px; line-height: 1.7; }
+
+/* The report page uses the Rabbits photo */
+body[data-page="report"] .bg-img[data-bg="rabbits"] { opacity: 1; }
+
+/* ----- Printing: only the report, black on white ----- */
+@media print {
+  .bg, .bottom-nav, .splash, .header, .hero, .back-link, .report-actions { display: none !important; }
+  body { background: #fff !important; }
+  .app { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+  .page { padding: 0 !important; max-width: none !important; }
+  .report-sheet,
+  .report-sheet * {
+    color: #000 !important;
+    background: none !important;
+    box-shadow: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  .report-sheet { border: none !important; padding: 0 !important; }
+  .report-sheet th,
+  .report-sheet td { border: 1px solid #999 !important; }
+  .report-card { border: 1px solid #999 !important; }
+}

@@ -9,8 +9,10 @@
 //   6. Health
 //   7. Tasks and the Today list
 //   8. Feed stock
-//   9. More (settings, backup, install)
-//  10. Start-up (runs last, so everything above already exists)
+//   9. Hutch view (cages in rows and columns)
+//  10. Herd report
+//  11. More (settings, backup, install)
+//  12. Start-up (runs last, so everything above already exists)
 // =====================================================================
 
 
@@ -20,7 +22,7 @@ const buttons = document.querySelectorAll(".bottom-nav button");
 const pages = document.querySelectorAll(".page");
 
 // Pages that live under another nav button (so that button stays highlighted)
-const NAV_FOR = { feed: "home", reminders: "home" };
+const NAV_FOR = { feed: "home", reminders: "home", report: "rabbits" };
 
 function showPage(pageId) {
   const navId = NAV_FOR[pageId] || pageId;
@@ -122,11 +124,7 @@ function statusOf(rabbit) {
 }
 
 // Turns a birth date into "9 days", "5 weeks", "7 months" or "1 yr 2 mo"
-function ageText(dob) {
-  if (!dob) return "";
-  const born = new Date(dob + "T00:00:00");
-  const days = Math.floor((new Date() - born) / 86400000);
-  if (days < 0) return "";
+function daysToText(days) {
   if (days < 14) return days + (days === 1 ? " day" : " days");
   if (days < 84) return Math.floor(days / 7) + " weeks";
   const months = Math.floor(days / 30.44);
@@ -134,6 +132,13 @@ function ageText(dob) {
   const years = Math.floor(months / 12);
   const rest = months % 12;
   return years + " yr" + (rest ? " " + rest + " mo" : "");
+}
+
+function ageText(dob) {
+  if (!dob) return "";
+  const days = Math.floor((new Date() - new Date(dob + "T00:00:00")) / 86400000);
+  if (days < 0) return "";
+  return daysToText(days);
 }
 
 // The most recent weight entry, or null if there is none
@@ -177,6 +182,23 @@ function addLine(parent, text) {
   line.className = "rabbit-line";
   line.textContent = text;
   parent.appendChild(line);
+}
+
+// Ask for a new weight and save it (used by the rabbit card and the cage pop-up)
+function addWeight(rabbit) {
+  const answer = prompt("New weight for " + rabbit.name + " (kg)?");
+  if (answer === null || answer.trim() === "") return;
+
+  const kg = Number(answer.replace(",", "."));
+  if (!(kg > 0 && kg < 20)) {
+    alert("Please enter a weight between 0 and 20 kg.");
+    return;
+  }
+
+  if (!rabbit.weights) rabbit.weights = [];
+  rabbit.weights.push({ date: todayText(), kg: kg });
+  saveRabbits();
+  renderRabbits();
 }
 
 function renderRabbits() {
@@ -250,21 +272,7 @@ function renderRabbits() {
 
     const weightBtn = document.createElement("button");
     weightBtn.textContent = "Weight";
-    weightBtn.addEventListener("click", function () {
-      const answer = prompt("New weight for " + rabbit.name + " (kg)?");
-      if (answer === null || answer.trim() === "") return;
-
-      const kg = Number(answer.replace(",", "."));
-      if (!(kg > 0 && kg < 20)) {
-        alert("Please enter a weight between 0 and 20 kg.");
-        return;
-      }
-
-      if (!rabbit.weights) rabbit.weights = [];
-      rabbit.weights.push({ date: todayText(), kg: kg });
-      saveRabbits();
-      renderRabbits();
-    });
+    weightBtn.addEventListener("click", function () { addWeight(rabbit); });
 
     const statusSelect = document.createElement("select");
     ["Active", "Sold", "Deceased"].forEach(function (s) {
@@ -341,6 +349,9 @@ function renderRabbits() {
   fillHealthSelects();
   fillSaleSelect();
   renderHealth();
+  renderHutch();
+  fillCageSelect();
+  refreshSheet();
 }
 
 // When the form is submitted, add a new rabbit
@@ -380,6 +391,9 @@ form.addEventListener("submit", function (event) {
   saveRabbits();
   renderRabbits();
   form.reset();
+
+  const box = document.getElementById("rabbit-box");
+  if (box) box.open = false;   // fold the form away again
 });
 
 
@@ -603,6 +617,8 @@ function renderBreedings() {
   setText("breeding-does", activeCount);
   setText("due-soon", dueSoonCount);
   renderToday();
+  renderHutch();
+  refreshSheet();
 }
 
 // --- When the breeding form is submitted ---
@@ -969,6 +985,8 @@ function renderHealth() {
   setText("health-due", dueCount);
   setText("in-withdrawal", holdCount);
   renderToday();
+  renderHutch();
+  refreshSheet();
 
   // Which records to show
   const filter = healthFilter.value;
@@ -1445,7 +1463,7 @@ if (taskForm) {
     taskForm.reset();
     document.getElementById("task-date").value = todayText();
 
-    const box = document.querySelector(".add-task");
+    const box = document.getElementById("task-box");
     if (box) box.open = false;   // fold the form away again
   });
 }
@@ -1668,7 +1686,699 @@ if (feedForm) {
 }
 
 
-// ===== 9. MORE (settings, backup, install) =====
+// ===== 9. HUTCH VIEW (cages in rows and columns) =====
+
+let hutch = JSON.parse(localStorage.getItem("hutch")) || { cols: 5, rows: 3 };
+
+const hutchGrid = document.getElementById("hutch-grid");
+const hutchPanel = document.getElementById("hutch-panel");
+const listPanel = document.getElementById("list-panel");
+const sheet = document.getElementById("cage-dialog");
+let sheetState = null;   // what the pop-up shows: { kind: "cage", id } or { kind: "rabbit", name }
+
+function saveHutch() {
+  localStorage.setItem("hutch", JSON.stringify(hutch));
+  dataChanged();
+}
+
+// Cage names: a letter for the row (A is the top row) and a number for the column (1 is on the left)
+function makeCageIds(cols, rows) {
+  const ids = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 1; c <= cols; c++) ids.push(String.fromCharCode(65 + r) + c);
+  }
+  return ids;
+}
+
+function cageIds() {
+  return makeCageIds(hutch.cols, hutch.rows);
+}
+
+// "a 3", "A-3" and "a3" all mean cage A3
+function normalizeCage(text) {
+  return String(text || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+// Active rabbits grouped by cage. Rabbits whose cage isn't on the grid go in "unplaced".
+function rabbitsByCage() {
+  const valid = new Set(cageIds());
+  const map = {};
+  const unplaced = [];
+
+  rabbits.forEach(function (r) {
+    if (statusOf(r) !== "Active") return;
+    const id = normalizeCage(r.cage);
+    if (valid.has(id)) {
+      (map[id] = map[id] || []).push(r);
+    } else {
+      unplaced.push(r);
+    }
+  });
+
+  return { map: map, unplaced: unplaced };
+}
+
+function sexKind(r) {
+  if (r.sex.startsWith("Buck")) return "buck";
+  if (r.sex.startsWith("Doe")) return "doe";
+  return "kit";
+}
+
+function daysPhrase(left) {
+  if (left < 0) return "overdue by " + Math.abs(left) + (Math.abs(left) === 1 ? " day" : " days");
+  if (left === 0) return "today";
+  return "in " + left + (left === 1 ? " day" : " days");
+}
+
+// Small words on a cage: "Due" (kindling within a week) and "Hold" (medicine withdrawal)
+function cageFlags(here) {
+  const flags = [];
+
+  const due = here.some(function (r) {
+    return breedings.some(function (b) {
+      return b.doe === r.name && !b.kindled &&
+        daysUntil(addDays(parseDate(b.matingDate), GESTATION_DAYS)) <= 7;
+    });
+  });
+  if (due) flags.push("Due");
+
+  if (here.some(function (r) { return withdrawalFor(r.name); })) flags.push("Hold");
+  return flags;
+}
+
+function occupancyLabel(id, map) {
+  const n = (map[id] || []).length;
+  if (n === 0) return id + " (empty)";
+  return id + " (" + n + (n === 1 ? " rabbit)" : " rabbits)");
+}
+
+// Fill a dropdown with every cage, showing how many rabbits are in each
+function fillCageOptions(select, firstLabel, map) {
+  select.innerHTML = "";
+  const first = document.createElement("option");
+  first.value = "";
+  first.textContent = firstLabel;
+  select.appendChild(first);
+
+  cageIds().forEach(function (id) {
+    const option = document.createElement("option");
+    option.value = id;
+    option.textContent = occupancyLabel(id, map);
+    select.appendChild(option);
+  });
+}
+
+// The Cage dropdown on the Add Rabbit form
+function fillCageSelect() {
+  const select = document.getElementById("rabbit-cage");
+  if (!select || select.tagName === "INPUT") return;   // an old text box: leave it alone
+  const keep = select.value;
+  fillCageOptions(select, "No cage yet", rabbitsByCage().map);
+  keepChoice(select, keep);
+}
+
+function moveRabbit(rabbit, cage) {
+  rabbit.cage = cage;
+  saveRabbits();
+  renderRabbits();   // this redraws the hutch and the pop-up too
+}
+
+// ----- Drawing the hutch -----
+function renderHutch() {
+  if (!hutchGrid) return;
+
+  const found = rabbitsByCage();
+  hutchGrid.style.setProperty("--cols", hutch.cols);
+  hutchGrid.innerHTML = "";
+
+  cageIds().forEach(function (id) {
+    const here = found.map[id] || [];
+
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "cage " + (here.length ? "occupied" : "empty");
+
+    const label = document.createElement("span");
+    label.className = "cage-label";
+    label.textContent = id;
+    cell.appendChild(label);
+
+    if (here.length === 0) {
+      const none = document.createElement("span");
+      none.className = "cage-more";
+      none.textContent = "Empty";
+      cell.appendChild(none);
+    } else {
+      // The cage takes the colour of its main resident: a doe beats a buck beats kits
+      const kinds = here.map(sexKind);
+      cell.classList.add("has-" + (kinds.indexOf("doe") !== -1 ? "doe" : kinds.indexOf("buck") !== -1 ? "buck" : "kit"));
+
+      const name = document.createElement("span");
+      name.className = "cage-name";
+      name.textContent = here[0].name;
+      cell.appendChild(name);
+
+      if (here.length > 1) {
+        const more = document.createElement("span");
+        more.className = "cage-more";
+        more.textContent = "+" + (here.length - 1) + " more";
+        cell.appendChild(more);
+      }
+
+      const flags = cageFlags(here);
+      if (flags.length) {
+        const row = document.createElement("span");
+        row.className = "cage-flags";
+        flags.forEach(function (f) {
+          const flag = document.createElement("span");
+          flag.className = "cage-flag" + (f === "Hold" ? " hold" : "");
+          flag.textContent = f;
+          row.appendChild(flag);
+        });
+        cell.appendChild(row);
+      }
+    }
+
+    cell.addEventListener("click", function () { openSheet({ kind: "cage", id: id }); });
+    hutchGrid.appendChild(cell);
+  });
+
+  // Rabbits that aren't in any cage on the grid (older records, or a smaller layout)
+  const box = document.getElementById("unplaced");
+  const ul = document.getElementById("unplaced-list");
+  if (box && ul) {
+    box.hidden = found.unplaced.length === 0;
+    ul.innerHTML = "";
+
+    found.unplaced.forEach(function (r) {
+      const li = document.createElement("li");
+      li.className = "rabbit-item unplaced-item";
+
+      const info = document.createElement("div");
+      const name = document.createElement("strong");
+      name.textContent = r.name;
+      const sub = document.createElement("small");
+      sub.className = "rabbit-line";
+      sub.textContent = r.sex + (r.cage ? " \u2022 old cage note: " + r.cage : "");
+      info.append(name, sub);
+
+      const place = document.createElement("select");
+      fillCageOptions(place, "Place in a cage...", found.map);
+      place.addEventListener("change", function () {
+        if (place.value) moveRabbit(r, place.value);
+      });
+
+      const details = document.createElement("button");
+      details.type = "button";
+      details.textContent = "Details";
+      details.addEventListener("click", function () { openSheet({ kind: "rabbit", name: r.name }); });
+
+      const controls = document.createElement("div");
+      controls.className = "unplaced-controls";
+      controls.append(place, details);
+
+      li.append(info, controls);
+      ul.appendChild(li);
+    });
+  }
+
+  // Keep the layout form in step with the saved layout
+  const colsInput = document.getElementById("hutch-cols");
+  const rowsInput = document.getElementById("hutch-rows");
+  if (colsInput) colsInput.value = hutch.cols;
+  if (rowsInput) rowsInput.value = hutch.rows;
+}
+
+// ----- The pop-up that shows a cage (or one rabbit) in detail -----
+function detailRow(parent, label, value) {
+  if (!value) return;
+  const row = document.createElement("div");
+  row.className = "detail-row";
+  const l = document.createElement("span");
+  l.className = "detail-label";
+  l.textContent = label;
+  const v = document.createElement("span");
+  v.className = "detail-value";
+  v.textContent = value;
+  row.append(l, v);
+  parent.appendChild(row);
+}
+
+function rabbitDetailCard(r) {
+  const card = document.createElement("div");
+  card.className = "detail-card";
+
+  const head = document.createElement("div");
+  head.className = "detail-head";
+  const name = document.createElement("strong");
+  name.textContent = r.name;
+  const badge = document.createElement("span");
+  badge.className = "badge";
+  badge.textContent = r.sex;
+  head.append(name, badge);
+  card.appendChild(head);
+
+  detailRow(card, "Breed", r.breed);
+  detailRow(card, "Age", r.dob ? ageText(r.dob) + " (born " + formatDate(parseDate(r.dob)) + ")" : "Birth date not recorded");
+  detailRow(card, "Cage", normalizeCage(r.cage) ? r.cage : "Not in a cage");
+
+  const w = latestWeight(r);
+  if (w) {
+    let text = w.kg + " kg on " + formatDate(parseDate(w.date));
+    if (r.weights.length > 1) {
+      const prev = r.weights[r.weights.length - 2];
+      const diff = Math.round((w.kg - prev.kg) * 100) / 100;
+      text += " (" + (diff >= 0 ? "+" : "") + diff + " kg since " + formatDate(parseDate(prev.date)) + ")";
+    }
+    detailRow(card, "Weight", text);
+  }
+
+  if (r.sire || r.dam) {
+    detailRow(card, "Parents", "Father " + (r.sire || "unknown") + ", mother " + (r.dam || "unknown"));
+  }
+
+  // Breeding: a doe's pregnancy or last litter, a buck's number of matings
+  if (r.sex.startsWith("Doe")) {
+    const pregnant = breedings.find(function (b) { return b.doe === r.name && !b.kindled; });
+    if (pregnant) {
+      const due = addDays(parseDate(pregnant.matingDate), GESTATION_DAYS);
+      detailRow(card, "Pregnancy", "Mated " + formatDate(parseDate(pregnant.matingDate)) +
+        (pregnant.buck ? " with " + pregnant.buck : "") + ", due " + formatDate(due) +
+        " (" + daysPhrase(daysUntil(due)) + ")");
+    } else {
+      const litters = breedings
+        .filter(function (b) { return b.doe === r.name && b.kindled && b.kindledDate; })
+        .sort(function (a, b) { return b.kindledDate.localeCompare(a.kindledDate); });
+      if (litters.length) {
+        detailRow(card, "Last litter", litters[0].litterSize + " kits, born " + formatDate(parseDate(litters[0].kindledDate)));
+      }
+    }
+  } else if (r.sex.startsWith("Buck")) {
+    const matings = breedings.filter(function (b) { return b.buck === r.name; }).length;
+    if (matings) detailRow(card, "Matings", matings + " recorded");
+  }
+
+  // Health
+  const records = healthRecords
+    .filter(function (h) { return h.rabbit === r.name || h.rabbit === ALL_HERD; })
+    .sort(function (a, b) { return b.date.localeCompare(a.date); });
+  if (records.length) {
+    detailRow(card, "Last health record", records[0].title + " (" + records[0].type.toLowerCase() + ", " + formatDate(parseDate(records[0].date)) + ")");
+  }
+  const upcoming = records
+    .filter(function (h) { return h.nextDue && !h.nextDone; })
+    .sort(function (a, b) { return a.nextDue.localeCompare(b.nextDue); })[0];
+  if (upcoming) {
+    detailRow(card, "Next health task", upcoming.title + " on " + formatDate(parseDate(upcoming.nextDue)) +
+      " (" + daysPhrase(daysUntil(parseDate(upcoming.nextDue))) + ")");
+  }
+  const hold = withdrawalFor(r.name);
+  if (hold) detailRow(card, "Withdrawal", "Do not sell or slaughter until " + formatDate(hold));
+
+  detailRow(card, "Notes", r.notes);
+
+  // Actions
+  const actions = document.createElement("div");
+  actions.className = "item-actions";
+
+  const weightBtn = document.createElement("button");
+  weightBtn.type = "button";
+  weightBtn.textContent = "Weight";
+  weightBtn.addEventListener("click", function () { addWeight(r); });
+
+  const moveSelect = document.createElement("select");
+  fillCageOptions(moveSelect, "Move to...", rabbitsByCage().map);
+  const none = document.createElement("option");
+  none.value = "__none__";
+  none.textContent = "Not in a cage";
+  moveSelect.appendChild(none);
+  moveSelect.addEventListener("change", function () {
+    if (!moveSelect.value) return;
+    moveRabbit(r, moveSelect.value === "__none__" ? "" : moveSelect.value);
+  });
+
+  const healthBtn = document.createElement("button");
+  healthBtn.type = "button";
+  healthBtn.textContent = "Add health record";
+  healthBtn.addEventListener("click", function () { goToHealth(r); });
+
+  actions.append(weightBtn, moveSelect, healthBtn);
+  card.appendChild(actions);
+  return card;
+}
+
+function renderSheet() {
+  if (!sheetState) return;
+  const body = document.getElementById("sheet-body");
+  const title = document.getElementById("sheet-title");
+  if (!body || !title) return;
+
+  let list;
+  let cageId = "";
+
+  if (sheetState.kind === "cage") {
+    cageId = sheetState.id;
+    list = rabbitsByCage().map[cageId] || [];
+    title.textContent = "Cage " + cageId + (list.length ? " \u2022 " + list.length + (list.length === 1 ? " rabbit" : " rabbits") : " \u2022 empty");
+  } else {
+    const r = findRabbit(sheetState.name);
+    list = r && statusOf(r) === "Active" ? [r] : [];
+    title.textContent = sheetState.name;
+  }
+
+  body.innerHTML = "";
+
+  if (list.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = cageId ? "Nobody is in this cage." : "This rabbit is no longer on the farm.";
+    body.appendChild(empty);
+  }
+
+  list.forEach(function (r) { body.appendChild(rabbitDetailCard(r)); });
+
+  if (cageId) {
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "action-btn secondary";
+    add.textContent = list.length ? "Add another rabbit to " + cageId : "Add a rabbit to " + cageId;
+    add.addEventListener("click", function () { startAddRabbit(cageId); });
+    body.appendChild(add);
+  }
+}
+
+function openSheet(state) {
+  sheetState = state;
+  renderSheet();
+  if (sheet && !sheet.open) {
+    if (sheet.showModal) sheet.showModal();
+    else sheet.setAttribute("open", "");
+  }
+}
+
+function closeSheet() {
+  sheetState = null;
+  if (sheet && sheet.open) {
+    if (sheet.close) sheet.close();
+    else sheet.removeAttribute("open");
+  }
+}
+
+function refreshSheet() {
+  if (sheetState) renderSheet();
+}
+
+// Jump to the Add Rabbit form with the cage already chosen
+function startAddRabbit(cageId) {
+  closeSheet();
+  showPage("rabbits");
+  setRabbitView("hutch");
+
+  const box = document.getElementById("rabbit-box");
+  if (box) box.open = true;
+
+  const select = document.getElementById("rabbit-cage");
+  if (select && cageId) keepChoice(select, cageId);
+
+  if (box && box.scrollIntoView) box.scrollIntoView({ behavior: "smooth", block: "start" });
+  const nameInput = document.getElementById("rabbit-name");
+  if (nameInput && nameInput.focus) nameInput.focus();
+}
+
+// Jump to the Health form with this rabbit already chosen
+function goToHealth(r) {
+  closeSheet();
+  showPage("health");
+  keepChoice(healthRabbit, r.name);
+}
+
+if (sheet) {
+  // Clicking the dark area around the pop-up closes it
+  sheet.addEventListener("click", function (event) { if (event.target === sheet) closeSheet(); });
+  // Esc or the Close button
+  sheet.addEventListener("close", function () { sheetState = null; });
+  const closeBtn = document.getElementById("sheet-close");
+  if (closeBtn) closeBtn.addEventListener("click", closeSheet);
+}
+
+// ----- Hutch or List -----
+function setRabbitView(view) {
+  localStorage.setItem("rabbitView", view);
+  if (hutchPanel) hutchPanel.hidden = view !== "hutch";
+  if (listPanel) listPanel.hidden = view !== "list";
+  const hutchBtn = document.getElementById("view-hutch");
+  const listBtn = document.getElementById("view-list");
+  if (hutchBtn) hutchBtn.classList.toggle("active", view === "hutch");
+  if (listBtn) listBtn.classList.toggle("active", view === "list");
+}
+
+(function () {
+  const hutchBtn = document.getElementById("view-hutch");
+  const listBtn = document.getElementById("view-list");
+  if (hutchBtn) hutchBtn.addEventListener("click", function () { setRabbitView("hutch"); });
+  if (listBtn) listBtn.addEventListener("click", function () { setRabbitView("list"); });
+  setRabbitView(localStorage.getItem("rabbitView") === "list" ? "list" : "hutch");
+})();
+
+// ----- Changing how many cages you have (More page) -----
+const hutchForm = document.getElementById("hutch-form");
+if (hutchForm) {
+  hutchForm.addEventListener("submit", function (event) {
+    event.preventDefault();
+
+    const cols = Math.floor(Number(document.getElementById("hutch-cols").value));
+    const rows = Math.floor(Number(document.getElementById("hutch-rows").value));
+    if (!(cols >= 1 && cols <= 10 && rows >= 1 && rows <= 8)) {
+      alert("Columns can be 1 to 10, and rows 1 to 8.");
+      return;
+    }
+
+    // Would any rabbit lose its cage?
+    const staying = new Set(makeCageIds(cols, rows));
+    const losing = rabbits.filter(function (r) {
+      return statusOf(r) === "Active" && normalizeCage(r.cage) && !staying.has(normalizeCage(r.cage));
+    });
+    if (losing.length && !confirm(losing.length + (losing.length === 1 ? " rabbit is" : " rabbits are") +
+        " in cages that won't exist any more. They move to \"Not in a cage\" and nothing is deleted.\n\nContinue?")) {
+      return;
+    }
+
+    hutch = { cols: cols, rows: rows };
+    saveHutch();
+    renderRabbits();
+    alert("Hutch layout saved.");
+  });
+}
+
+
+// ===== 10. HERD REPORT =====
+
+// Edit these to change the age groups (the numbers are days)
+const AGE_BANDS = [
+  { label: "Under 5 weeks (kits)", min: 0, max: 34 },
+  { label: "5 weeks to 4 months (growers)", min: 35, max: 119 },
+  { label: "4 to 12 months (young adults)", min: 120, max: 364 },
+  { label: "Over 1 year (mature)", min: 365, max: Infinity },
+];
+
+const reportBody = document.getElementById("report-body");
+
+function ageInDays(r) {
+  if (!r.dob) return null;
+  const days = Math.floor((new Date() - parseDate(r.dob)) / 86400000);
+  return days < 0 ? null : days;
+}
+
+function sexGroup(r) {
+  if (r.sex.startsWith("Doe")) return "Does";
+  if (r.sex.startsWith("Buck")) return "Bucks";
+  return "Unsexed";
+}
+
+// Counts everything for the report (only rabbits that are still on the farm)
+function buildReport() {
+  const active = rabbits.filter(function (r) { return statusOf(r) === "Active"; });
+
+  const report = {
+    generated: new Date(),
+    total: active.length,
+    sex: { Does: 0, Bucks: 0, Unsexed: 0 },
+    bands: AGE_BANDS.map(function (b) {
+      return { label: b.label, min: b.min, max: b.max, Does: 0, Bucks: 0, Unsexed: 0 };
+    }),
+    unknownAge: { label: "Age not recorded", Does: 0, Bucks: 0, Unsexed: 0 },
+    breeds: {},
+    ages: [],
+    oldest: null,
+    youngest: null,
+    sold: rabbits.filter(function (r) { return statusOf(r) === "Sold"; }).length,
+    deceased: rabbits.filter(function (r) { return statusOf(r) === "Deceased"; }).length,
+  };
+
+  active.forEach(function (r) {
+    const group = sexGroup(r);
+    report.sex[group]++;
+    report.breeds[r.breed] = (report.breeds[r.breed] || 0) + 1;
+
+    const days = ageInDays(r);
+    if (days === null) {
+      report.unknownAge[group]++;
+      return;
+    }
+
+    report.ages.push(days);
+    const band = report.bands.find(function (b) { return days >= b.min && days <= b.max; });
+    band[group]++;
+
+    if (!report.oldest || days > report.oldest.days) report.oldest = { name: r.name, days: days };
+    if (!report.youngest || days < report.youngest.days) report.youngest = { name: r.name, days: days };
+  });
+
+  const found = rabbitsByCage();
+  report.cagesTotal = cageIds().length;
+  report.cagesUsed = Object.keys(found.map).length;
+  report.unplaced = found.unplaced.length;
+  return report;
+}
+
+// Small helper: make an element with a class and some text
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function makeTable(headers, rows, lastRowIsTotal) {
+  const wrap = el("div", "report-table-wrap");
+  const table = document.createElement("table");
+
+  const headRow = document.createElement("tr");
+  headers.forEach(function (h) { headRow.appendChild(el("th", "", h)); });
+  const thead = document.createElement("thead");
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  rows.forEach(function (row, i) {
+    const tr = document.createElement("tr");
+    if (lastRowIsTotal && i === rows.length - 1) tr.className = "total-row";
+    row.forEach(function (cellText) { tr.appendChild(el("td", "", String(cellText))); });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+
+  wrap.appendChild(table);
+  return wrap;
+}
+
+function renderReport() {
+  if (!reportBody) return;
+  const r = buildReport();
+  const farm = localStorage.getItem("farmName") || "Your farm";
+
+  reportBody.innerHTML = "";
+  reportBody.appendChild(el("h3", "report-title", farm + ": herd report"));
+  reportBody.appendChild(el("p", "report-date",
+    "Generated " + formatDate(r.generated) + " at " +
+    r.generated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })));
+
+  if (r.total === 0) {
+    reportBody.appendChild(el("p", "empty", "There are no active rabbits yet."));
+    return;
+  }
+
+  // Big numbers
+  const cards = el("div", "report-cards");
+  [["Total herd", r.total], ["Does", r.sex.Does], ["Bucks", r.sex.Bucks], ["Unsexed kits", r.sex.Unsexed]]
+    .forEach(function (pair) {
+      const card = el("div", "report-card");
+      card.append(el("small", "", pair[0]), el("strong", "", String(pair[1])));
+      cards.appendChild(card);
+    });
+  reportBody.appendChild(cards);
+
+  // Age group by sex
+  reportBody.appendChild(el("h4", "", "Age and sex"));
+  const ageRows = r.bands.map(function (b) {
+    return [b.label, b.Does, b.Bucks, b.Unsexed, b.Does + b.Bucks + b.Unsexed];
+  });
+  const u = r.unknownAge;
+  if (u.Does + u.Bucks + u.Unsexed > 0) ageRows.push([u.label, u.Does, u.Bucks, u.Unsexed, u.Does + u.Bucks + u.Unsexed]);
+  ageRows.push(["Total", r.sex.Does, r.sex.Bucks, r.sex.Unsexed, r.total]);
+  reportBody.appendChild(makeTable(["Age group", "Does", "Bucks", "Unsexed", "Total"], ageRows, true));
+
+  // Breeds
+  reportBody.appendChild(el("h4", "", "Breeds"));
+  const breedRows = Object.keys(r.breeds)
+    .sort(function (a, b) { return r.breeds[b] - r.breeds[a]; })
+    .map(function (name) {
+      return [name, r.breeds[name], Math.round((r.breeds[name] / r.total) * 100) + "%"];
+    });
+  reportBody.appendChild(makeTable(["Breed", "Rabbits", "Share"], breedRows, false));
+
+  // Key facts
+  reportBody.appendChild(el("h4", "", "Key facts"));
+  const facts = el("ul", "report-facts");
+  if (r.ages.length) {
+    const avg = r.ages.reduce(function (a, b) { return a + b; }, 0) / r.ages.length;
+    facts.appendChild(el("li", "", "Average age: " + daysToText(Math.round(avg))));
+    facts.appendChild(el("li", "", "Oldest: " + r.oldest.name + " (" + daysToText(r.oldest.days) + ")"));
+    facts.appendChild(el("li", "", "Youngest: " + r.youngest.name + " (" + daysToText(r.youngest.days) + ")"));
+  }
+  facts.appendChild(el("li", "", "Cages in use: " + r.cagesUsed + " of " + r.cagesTotal));
+  if (r.unplaced > 0) facts.appendChild(el("li", "", r.unplaced + (r.unplaced === 1 ? " rabbit is" : " rabbits are") + " not in a cage"));
+  const unknown = u.Does + u.Bucks + u.Unsexed;
+  if (unknown > 0) facts.appendChild(el("li", "", unknown + (unknown === 1 ? " rabbit has" : " rabbits have") + " no birth date recorded"));
+  facts.appendChild(el("li", "", "On record: " + r.sold + " sold, " + r.deceased + " deceased"));
+  reportBody.appendChild(facts);
+}
+
+// One spreadsheet-friendly line per rabbit (opens in Excel or Google Sheets)
+function csvCell(value) {
+  const text = String(value === undefined || value === null ? "" : value);
+  return /[",\n]/.test(text) ? "\"" + text.replace(/"/g, "\"\"") + "\"" : text;
+}
+
+function buildCsvText() {
+  const rows = [["Tag", "Breed", "Sex", "Date of birth", "Age", "Cage", "Status", "Latest weight (kg)"]];
+  rabbits.forEach(function (r) {
+    const w = latestWeight(r);
+    rows.push([r.name, r.breed, r.sex, r.dob, ageText(r.dob), r.cage, statusOf(r), w ? w.kg : ""]);
+  });
+  return rows.map(function (row) { return row.map(csvCell).join(","); }).join("\r\n");
+}
+
+function downloadCsv() {
+  const blob = new Blob(["\uFEFF" + buildCsvText()], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "herd-list-" + todayText() + ".csv";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+(function () {
+  const generate = document.getElementById("report-generate");
+  const print = document.getElementById("report-print");
+  const csv = document.getElementById("report-csv");
+
+  if (reportBody) reportBody.appendChild(el("p", "empty", "Press \"Generate report\" to create a snapshot of your herd as it is today."));
+
+  if (generate) {
+    generate.addEventListener("click", function () {
+      renderReport();
+      if (print) print.hidden = false;
+      if (csv) csv.hidden = false;
+    });
+  }
+  if (print) print.addEventListener("click", function () { window.print(); });
+  if (csv) csv.addEventListener("click", downloadCsv);
+})();
+
+
+// ===== 11. MORE (settings, backup, install) =====
 
 const appTitle = document.getElementById("app-title");
 const farmNameInput = document.getElementById("farm-name");
@@ -1712,6 +2422,7 @@ function buildBackup() {
     healthRecords: healthRecords,
     tasks: tasks,
     feeds: feeds,
+    hutch: hutch,
   };
 }
 
@@ -1723,6 +2434,7 @@ function applyBackup(data) {
   healthRecords = data.healthRecords || [];
   tasks = data.tasks || [];
   feeds = data.feeds || [];
+  hutch = data.hutch || { cols: 5, rows: 3 };
   localStorage.setItem("farmName", data.farmName || "");
 
   saveRabbits();
@@ -1731,6 +2443,7 @@ function applyBackup(data) {
   saveHealth();
   saveTasks();
   saveFeeds();
+  saveHutch();
   refreshAll();
 }
 
@@ -1830,7 +2543,7 @@ document.addEventListener("visibilitychange", function () {
 window.Sungura = { buildBackup: buildBackup, applyBackup: applyBackup };
 
 
-// ===== 10. START-UP: runs once when the page loads =====
+// ===== 12. START-UP: runs once when the page loads =====
 // This is last on purpose: every function and variable above already exists.
 
 fillCategories();
